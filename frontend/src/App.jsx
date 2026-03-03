@@ -16,7 +16,7 @@ function App() {
   const [grasaObjetivo, setGrasaObjetivo] = useState(12);
 
   // URL de tu Backend en Render
-  const API_URL = 'https://seguimiento-metabolico-api.onrender.com/api';
+  const API_URL = 'https://seguimiento-metabolico.onrender.com/api';
 
   // --- CARGAR DATOS AL INICIAR ---
   useEffect(() => {
