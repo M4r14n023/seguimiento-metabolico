@@ -29,7 +29,7 @@ function App() {
 
   const cargarConfiguracion = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/api/config')
+      const res = await axios.get('https://seguimiento-metabolico.onrender.com/api/config')
       setPesoInicial(res.data.peso_inicial)
       setGrasaActual(res.data.grasa_actual)
       setGrasaObjetivo(res.data.grasa_objetivo)
@@ -44,11 +44,11 @@ function App() {
       grasa_actual: parseFloat(grasaActual), 
       grasa_objetivo: parseFloat(grasaObjetivo) 
     }
-    await axios.post('http://localhost:8000/api/config', config)
+    await axios.post('https://seguimiento-metabolico.onrender.com/api/config', config)
   }
 
   const cargarHistorial = async () => {
-    const res = await axios.get('http://localhost:8000/api/historial')
+    const res = await axios.get('https://seguimiento-metabolico.onrender.com/api/historial')
     setHistorial(res.data)
   }
 
@@ -58,7 +58,7 @@ function App() {
       grasa_actual: parseFloat(grasaActual), 
       grasa_objetivo: parseFloat(grasaObjetivo) 
     }
-    const res = await axios.post('http://localhost:8000/api/proyectar', config)
+    const res = await axios.post('https://seguimiento-metabolico.onrender.com/api/proyectar', config)
     setProyeccion(res.data.proyeccion)
   }
 
@@ -71,7 +71,7 @@ function App() {
       cintura: cintura ? parseFloat(cintura) : null
     }
 
-    await axios.post('http://localhost:8000/api/registrar_peso', payload)
+    await axios.post('https://seguimiento-metabolico.onrender.com/api/registrar_peso', payload)
     setPeso('')
     setCintura('')
     cargarHistorial() 
@@ -79,7 +79,7 @@ function App() {
 
   const borrarRegistro = async (id) => {
     if (window.confirm("¿Estás seguro de que quieres borrar este registro?")) {
-      await axios.delete(`http://localhost:8000/api/borrar_peso/${id}`)
+      await axios.delete(`https://seguimiento-metabolico.onrender.com/api/borrar_peso/${id}`)
       cargarHistorial()
     }
   }
