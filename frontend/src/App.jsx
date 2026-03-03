@@ -1,61 +1,67 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-// Unificamos todo en un solo import de recharts
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, ReferenceLine, Legend 
 } from 'recharts'
 import SelectorGrasaVisual from './components/SelectorGrasaVisual'
 
-const GraficoProgreso = ({ historial, pesoObjetivo }) => {
-  // 1. Protección vital: Si no hay historial o está vacío, mostramos un mensaje en lugar de romper la app
-  if (!historial || historial.length === 0) {
-    return (
-      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '15px', marginTop: '30px', textAlign: 'center', color: '#6b7280' }}>
-        Aún no hay datos suficientes para generar el gráfico...
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '15px', marginTop: '30px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
-      <h3 style={{ marginBottom: '15px', color: '#1f2937', textAlign: 'center' }}>Evolución del Peso</h3>
-      
-      {/* 2. Solución al error -1: Agregamos minHeight al contenedor */}
-      <div style={{ width: '100%', height: 350, minHeight: 350 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={historial} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-            
-            {/* 3. Protección en el formato de fecha por si alguna viene nula */}
-            <XAxis 
-              dataKey="fecha" 
-              tick={{fontSize: 10}} 
-              tickFormatter={(str) => str ? str.split(' ')[0] : ''} 
-            />
-            
-            <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12}} />
-            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
-            
-            {/* Línea de meta */}
-            {pesoObjetivo && <ReferenceLine y={pesoObjetivo} label="Meta" stroke="green" strokeDasharray="3 3" />}
-            
-            <Line type="monotone" dataKey="peso" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-};
 function App() {
-  // --- TUS ESTADOS (Asegúrate de tener estos nombres o cámbialos por los tuyos) ---
+  // --- ESTADOS ---
   const [peso, setPeso] = useState('');
   const [cintura, setCintura] = useState('');
   const [historial, setHistorial] = useState([]);
   const [pesoInicial, setPesoInicial] = useState(80);
   const [grasaActual, setGrasaActual] = useState(20);
   const [grasaObjetivo, setGrasaObjetivo] = useState(12);
-  const [datosGrafico, setDatosGrafico] = useState([]);
+
+  // URL de tu Backend en Render
+  const API_URL = 'https://seguimiento-metabolico-api.onrender.com/api';
+
+  // --- CARGAR DATOS AL INICIAR ---
+  useEffect(() => {
+    cargarHistorial();
+  }, []);
+
+  const cargarHistorial = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/registros`);
+      setHistorial(res.data);
+    } catch (error) {
+      console.error("Error al cargar los datos:", error);
+    }
+  };
+
+  // --- GUARDAR NUEVO REGISTRO ---
+  const guardarRegistro = async () => {
+    if (!peso) return alert("Por favor, ingresa tu peso.");
+    
+    try {
+      await axios.post(`${API_URL}/registros`, {
+        peso: parseFloat(peso),
+        cintura: cintura ? parseFloat(cintura) : null
+      });
+      // Limpiamos los inputs y recargamos la lista
+      setPeso('');
+      setCintura('');
+      cargarHistorial();
+    } catch (error) {
+      console.error("Error al guardar:", error);
+      alert("Hubo un error al guardar el registro.");
+    }
+  };
+
+  // --- BORRAR REGISTRO ---
+  const borrarRegistro = async (id) => {
+    if (!window.confirm("¿Seguro que quieres borrar este registro?")) return;
+    
+    try {
+      await axios.delete(`${API_URL}/registros/${id}`);
+      cargarHistorial(); // Recargamos la lista tras borrar
+    } catch (error) {
+      console.error("Error al borrar:", error);
+    }
+  };
 
   // --- FUNCIÓN PARA FORMATEAR FECHA ---
   const renderFecha = (fechaStr) => {
@@ -68,9 +74,6 @@ function App() {
       </>
     );
   };
-
-  // --- AQUÍ IRÍAN TUS FUNCIONES (useEffect, guardarRegistro, borrarRegistro) ---
-  // Asegúrate de mantenerlas dentro de la función App antes del return.
 
   return (
     <div className="app-container">
@@ -120,38 +123,37 @@ function App() {
         <div className="form-row">
           <div className="input-group">
             <label className="label">Peso Actual (kg) *</label>
-            <input type="number" step="0.1" value={peso} onChange={(e) => setPeso(e.target.value)} className="input-modern" />
+            <input type="number" step="0.1" value={peso} onChange={(e) => setPeso(e.target.value)} className="input-modern" placeholder="Ej: 75.5" />
           </div>
           <div className="input-group">
             <label className="label">Cintura (cm)</label>
-            <input type="number" step="0.1" value={cintura} onChange={(e) => setCintura(e.target.value)} className="input-modern" />
+            <input type="number" step="0.1" value={cintura} onChange={(e) => setCintura(e.target.value)} className="input-modern" placeholder="Ej: 82.0" />
           </div>
-          <button onClick={() => {/* Tu función de guardar */}} className="btn-guardar">Guardar Datos</button>
+          <button onClick={guardarRegistro} className="btn-guardar">Guardar Datos</button>
         </div>
       </div>
 
-      {/* GRÁFICO (Protegido para que no falle) */}
-<div className="card">
-  <h3 className="card-header">📈 Evolución y Progreso</h3>
-  <div style={{ height: '350px', width: '100%', minHeight: '350px' }}>
-    {/* Solo intentamos renderizar el gráfico si hay datos en el historial */}
-    {historial && historial.length > 0 ? (
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={historial} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-          <XAxis dataKey="fecha" tick={{fontSize: 10}} tickFormatter={(str) => str ? str.split(' ')[0] : ''} />
-          <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12}} />
-          <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
-          <Line type="monotone" dataKey="peso" stroke="#10b981" name="Mi Peso Real" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-        </LineChart>
-      </ResponsiveContainer>
-    ) : (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#6b7280' }}>
-        Cargando datos o esperando registros...
+      {/* GRÁFICO */}
+      <div className="card">
+        <h3 className="card-header">📈 Evolución y Progreso</h3>
+        <div style={{ height: '350px', width: '100%', minHeight: '350px' }}>
+          {historial && historial.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={historial} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="fecha" tick={{fontSize: 10}} tickFormatter={(str) => str ? str.split(' ')[0] : ''} />
+                <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12}} />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                <Line type="monotone" dataKey="peso" stroke="#10b981" name="Mi Peso Real" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#6b7280' }}>
+              Cargando datos o esperando registros...
+            </div>
+          )}
+        </div>
       </div>
-    )}
-  </div>
-</div>
 
       {/* HISTORIAL */}
       <div className="card">
@@ -166,9 +168,10 @@ function App() {
                   {reg.cintura && <span className="badge badge-cintura" style={{marginLeft: '10px'}}>📏 {reg.cintura} cm</span>}
                 </div>
               </div>
-              <button onClick={() => {/* Tu función borrar */}} className="btn-borrar">🗑️</button>
+              <button onClick={() => borrarRegistro(reg.id)} className="btn-borrar">🗑️</button>
             </li>
           ))}
+          {historial.length === 0 && <p style={{ color: '#6b7280', textAlign: 'center', paddingTop: '10px' }}>No hay registros para mostrar.</p>}
         </ul>
       </div>
     </div>
