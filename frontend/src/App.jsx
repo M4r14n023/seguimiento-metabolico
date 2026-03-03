@@ -11,6 +11,8 @@ function App() {
   const [peso, setPeso] = useState('');
   const [cintura, setCintura] = useState('');
   const [historial, setHistorial] = useState([]);
+  
+  // Estados de Configuración
   const [pesoInicial, setPesoInicial] = useState(80);
   const [grasaActual, setGrasaActual] = useState(20);
   const [grasaObjetivo, setGrasaObjetivo] = useState(12);
@@ -21,15 +23,43 @@ function App() {
   // --- CARGAR DATOS AL INICIAR ---
   useEffect(() => {
     cargarHistorial();
+    cargarConfiguracion(); // Ahora también cargamos tu perfil al inicio
   }, []);
 
   const cargarHistorial = async () => {
     try {
-      // Ahora sí, coincide con tu Python: /api/historial
       const res = await axios.get(`${API_URL}/historial`);
       setHistorial(res.data);
     } catch (error) {
-      console.error("Error al cargar los datos:", error);
+      console.error("Error al cargar el historial:", error);
+    }
+  };
+
+  const cargarConfiguracion = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/config`);
+      if (res.data) {
+        setPesoInicial(res.data.peso_inicial);
+        setGrasaActual(res.data.grasa_actual);
+        setGrasaObjetivo(res.data.grasa_objetivo);
+      }
+    } catch (error) {
+      console.error("Error al cargar la configuración:", error);
+    }
+  };
+
+  // --- GUARDAR CONFIGURACIÓN ---
+  const guardarConfiguracion = async () => {
+    try {
+      await axios.post(`${API_URL}/config`, {
+        peso_inicial: parseFloat(pesoInicial),
+        grasa_actual: parseFloat(grasaActual),
+        grasa_objetivo: parseFloat(grasaObjetivo)
+      });
+      alert("¡Perfil y objetivos guardados con éxito!");
+    } catch (error) {
+      console.error("Error al guardar config:", error);
+      alert("Error al guardar el perfil");
     }
   };
 
@@ -38,7 +68,6 @@ function App() {
     if (!peso) return alert("Por favor, ingresa tu peso.");
     
     try {
-      // Ahora sí, coincide con tu Python: /api/registrar_peso
       await axios.post(`${API_URL}/registrar_peso`, {
         peso: parseFloat(peso),
         cintura: cintura ? parseFloat(cintura) : null
@@ -57,7 +86,6 @@ function App() {
     if (!window.confirm("¿Seguro que quieres borrar este registro?")) return;
     
     try {
-      // Ahora sí, coincide con tu Python: /api/borrar_peso/
       await axios.delete(`${API_URL}/borrar_peso/${id}`);
       cargarHistorial();
     } catch (error) {
@@ -93,6 +121,7 @@ function App() {
         .label { font-size: 13px; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.5px; }
         .input-modern { padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; outline: none; background: #fff; width: 120px; }
         .btn-guardar { background: #10b981; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; }
+        .btn-perfil { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; }
         .btn-borrar { background: #fee2e2; color: #ef4444; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 16px; }
         .lista-historial { list-style: none; padding: 0; margin: 0; }
         .item-historial { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid #e5e7eb; }
@@ -106,7 +135,7 @@ function App() {
       {/* PANEL DE CONFIGURACIÓN */}
       <div className="card card-azul">
         <h3 className="card-header">⚙️ Mi Perfil y Objetivos</h3>
-        <div className="form-row">
+        <div className="form-row" style={{ marginBottom: '20px' }}>
           <div className="input-group">
             <label className="label">Peso Inicial (kg)</label>
             <input type="number" step="0.1" value={pesoInicial} onChange={(e) => setPesoInicial(e.target.value)} className="input-modern" />
@@ -115,6 +144,7 @@ function App() {
             <label className="label">% Grasa Objetivo</label>
             <input type="number" value={grasaObjetivo} onChange={(e) => setGrasaObjetivo(e.target.value)} className="input-modern" />
           </div>
+          <button onClick={guardarConfiguracion} className="btn-perfil">💾 Guardar Perfil</button>
         </div>
         <SelectorGrasaVisual grasaActual={grasaActual} setGrasaActual={setGrasaActual} />
       </div>
@@ -131,7 +161,7 @@ function App() {
             <label className="label">Cintura (cm)</label>
             <input type="number" step="0.1" value={cintura} onChange={(e) => setCintura(e.target.value)} className="input-modern" placeholder="Ej: 82.0" />
           </div>
-          <button onClick={guardarRegistro} className="btn-guardar">Guardar Datos</button>
+          <button onClick={guardarRegistro} className="btn-guardar">➕ Guardar Datos</button>
         </div>
       </div>
 
@@ -140,7 +170,8 @@ function App() {
         <h3 className="card-header">📈 Evolución y Progreso</h3>
         <div style={{ height: '350px', width: '100%', minHeight: '350px' }}>
           {historial && historial.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            /* El hack de width 99% soluciona la advertencia de Recharts */
+            <ResponsiveContainer width="99%" height="100%">
               <LineChart data={historial} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 <XAxis dataKey="fecha" tick={{fontSize: 10}} tickFormatter={(str) => str ? str.split(' ')[0] : ''} />
