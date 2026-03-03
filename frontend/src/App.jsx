@@ -17,13 +17,12 @@ function App() {
   const [grasaActual, setGrasaActual] = useState(20);
   const [grasaObjetivo, setGrasaObjetivo] = useState(12);
 
-  // LA URL CORRECTA DE TU BACKEND
   const API_URL = 'https://seguimiento-metabolico.onrender.com/api';
 
   // --- CARGAR DATOS AL INICIAR ---
   useEffect(() => {
     cargarHistorial();
-    cargarConfiguracion(); // Ahora también cargamos tu perfil al inicio
+    cargarConfiguracion();
   }, []);
 
   const cargarHistorial = async () => {
@@ -48,7 +47,6 @@ function App() {
     }
   };
 
-  // --- GUARDAR CONFIGURACIÓN ---
   const guardarConfiguracion = async () => {
     try {
       await axios.post(`${API_URL}/config`, {
@@ -63,7 +61,6 @@ function App() {
     }
   };
 
-  // --- GUARDAR NUEVO REGISTRO ---
   const guardarRegistro = async () => {
     if (!peso) return alert("Por favor, ingresa tu peso.");
     
@@ -81,7 +78,6 @@ function App() {
     }
   };
 
-  // --- BORRAR REGISTRO ---
   const borrarRegistro = async (id) => {
     if (!window.confirm("¿Seguro que quieres borrar este registro?")) return;
     
@@ -93,7 +89,6 @@ function App() {
     }
   };
 
-  // --- FUNCIÓN PARA FORMATEAR FECHA ---
   const renderFecha = (fechaStr) => {
     if (!fechaStr) return "";
     const partes = fechaStr.split(' ');
@@ -105,9 +100,20 @@ function App() {
     );
   };
 
+  // --- CÁLCULO DE LA LÍNEA DE META ---
+  const pesoInit = parseFloat(pesoInicial) || 0;
+  const grasaAct = parseFloat(grasaActual) || 0;
+  const grasaObj = parseFloat(grasaObjetivo) || 0;
+  
+  let pesoObjetivoCalculado = 0;
+  if (pesoInit > 0 && grasaObj < 100) {
+    const masaMagra = pesoInit - (pesoInit * (grasaAct / 100));
+    pesoObjetivoCalculado = masaMagra / (1 - (grasaObj / 100));
+  }
+
   return (
     <div className="app-container">
-      {/* --- BLOQUE DE ESTILOS CSS --- */}
+      {/* Se agregó "color: #111827;" a .input-modern para que el texto sea oscuro */}
       <style>{`
         html, body { margin: 0; padding: 0; width: 100%; background-color: #f3f4f6; color: #1f2937; font-family: system-ui, -apple-system, sans-serif; }
         #root { width: 100%; display: flex; justify-content: center; }
@@ -119,7 +125,7 @@ function App() {
         .form-row { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
         .input-group { display: flex; flex-direction: column; gap: 6px; }
         .label { font-size: 13px; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.5px; }
-        .input-modern { padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; outline: none; background: #fff; width: 120px; }
+        .input-modern { padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; outline: none; background: #ffffff; color: #111827; width: 120px; }
         .btn-guardar { background: #10b981; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; }
         .btn-perfil { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; }
         .btn-borrar { background: #fee2e2; color: #ef4444; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 16px; }
@@ -170,13 +176,23 @@ function App() {
         <h3 className="card-header">📈 Evolución y Progreso</h3>
         <div style={{ height: '350px', width: '100%', minHeight: '350px' }}>
           {historial && historial.length > 0 ? (
-            /* El hack de width 99% soluciona la advertencia de Recharts */
             <ResponsiveContainer width="99%" height="100%">
               <LineChart data={historial} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 <XAxis dataKey="fecha" tick={{fontSize: 10}} tickFormatter={(str) => str ? str.split(' ')[0] : ''} />
                 <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12}} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                
+                {/* Acá está la famosa línea de meta restaurada */}
+                {pesoObjetivoCalculado > 0 && (
+                  <ReferenceLine 
+                    y={pesoObjetivoCalculado} 
+                    label={{ position: 'top', value: `Meta: ${pesoObjetivoCalculado.toFixed(1)} kg`, fill: '#3b82f6', fontSize: 12, fontWeight: 'bold' }} 
+                    stroke="#3b82f6" 
+                    strokeDasharray="3 3" 
+                  />
+                )}
+                
                 <Line type="monotone" dataKey="peso" stroke="#10b981" name="Mi Peso Real" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
               </LineChart>
             </ResponsiveContainer>
