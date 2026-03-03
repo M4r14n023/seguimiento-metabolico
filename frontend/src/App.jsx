@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, ReferenceLine, Legend 
+  Tooltip, ResponsiveContainer, ReferenceLine 
 } from 'recharts'
 import SelectorGrasaVisual from './components/SelectorGrasaVisual'
 
@@ -15,7 +15,7 @@ function App() {
   const [grasaActual, setGrasaActual] = useState(20);
   const [grasaObjetivo, setGrasaObjetivo] = useState(12);
 
-  // URL de tu Backend en Render
+  // LA URL CORRECTA DE TU BACKEND
   const API_URL = 'https://seguimiento-metabolico.onrender.com/api';
 
   // --- CARGAR DATOS AL INICIAR ---
@@ -25,7 +25,8 @@ function App() {
 
   const cargarHistorial = async () => {
     try {
-      const res = await axios.get(`${API_URL}/registros`);
+      // Ahora sí, coincide con tu Python: /api/historial
+      const res = await axios.get(`${API_URL}/historial`);
       setHistorial(res.data);
     } catch (error) {
       console.error("Error al cargar los datos:", error);
@@ -37,11 +38,11 @@ function App() {
     if (!peso) return alert("Por favor, ingresa tu peso.");
     
     try {
-      await axios.post(`${API_URL}/registros`, {
+      // Ahora sí, coincide con tu Python: /api/registrar_peso
+      await axios.post(`${API_URL}/registrar_peso`, {
         peso: parseFloat(peso),
         cintura: cintura ? parseFloat(cintura) : null
       });
-      // Limpiamos los inputs y recargamos la lista
       setPeso('');
       setCintura('');
       cargarHistorial();
@@ -56,8 +57,9 @@ function App() {
     if (!window.confirm("¿Seguro que quieres borrar este registro?")) return;
     
     try {
-      await axios.delete(`${API_URL}/registros/${id}`);
-      cargarHistorial(); // Recargamos la lista tras borrar
+      // Ahora sí, coincide con tu Python: /api/borrar_peso/
+      await axios.delete(`${API_URL}/borrar_peso/${id}`);
+      cargarHistorial();
     } catch (error) {
       console.error("Error al borrar:", error);
     }
