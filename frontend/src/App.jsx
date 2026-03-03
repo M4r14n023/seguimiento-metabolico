@@ -1,8 +1,37 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+// Unificamos todo en un solo import de recharts
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, ReferenceLine, Legend 
+} from 'recharts'
 import SelectorGrasaVisual from './components/SelectorGrasaVisual'
 
+// El componente GraficoProgreso está perfecto como lo pegaste
+const GraficoProgreso = ({ historial, pesoObjetivo }) => {
+  if (historial.length === 0) return null;
+  return (
+    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '15px', marginTop: '30px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+      <h3 style={{ marginBottom: '15px', color: '#1f2937', textAlign: 'center' }}>Evolución del Peso</h3>
+      <div style={{ width: '100%', height: 300 }}>
+        <ResponsiveContainer>
+          <LineChart data={historial}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+            <XAxis 
+              dataKey="fecha" 
+              tick={{fontSize: 10}} 
+              tickFormatter={(str) => str.split(' ')[0]} 
+            />
+            <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12}} />
+            <Tooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+            <ReferenceLine y={pesoObjetivo} label="Meta" stroke="green" strokeDasharray="3 3" />
+            <Line type="monotone" dataKey="peso" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 8 }} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
 function App() {
   const [peso, setPeso] = useState('')
   const [cintura, setCintura] = useState('')
@@ -102,9 +131,9 @@ function App() {
     );
   }
 
+
   return (
     <div className="app-container">
-      {/* --- BLOQUE DE ESTILOS CSS MODERNOS --- */}
       {/* --- BLOQUE DE ESTILOS CSS MODERNOS --- */}
       <style>{`
         /* Reseteamos el body y forzamos el centrado desde la raíz */
@@ -232,5 +261,7 @@ function App() {
     </div>
   )
 }
+{/* Pasale el historial que ya tenés y el peso objetivo de tu configuración */}
+<GraficoProgreso historial={historial} pesoObjetivo={config.peso_objetivo || 75} />
 
 export default App
