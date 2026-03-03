@@ -7,25 +7,40 @@ import {
 } from 'recharts'
 import SelectorGrasaVisual from './components/SelectorGrasaVisual'
 
-// El componente GraficoProgreso está perfecto como lo pegaste
 const GraficoProgreso = ({ historial, pesoObjetivo }) => {
-  if (historial.length === 0) return null;
+  // 1. Protección vital: Si no hay historial o está vacío, mostramos un mensaje en lugar de romper la app
+  if (!historial || historial.length === 0) {
+    return (
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '15px', marginTop: '30px', textAlign: 'center', color: '#6b7280' }}>
+        Aún no hay datos suficientes para generar el gráfico...
+      </div>
+    );
+  }
+
   return (
     <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '15px', marginTop: '30px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
       <h3 style={{ marginBottom: '15px', color: '#1f2937', textAlign: 'center' }}>Evolución del Peso</h3>
-      <div style={{ width: '100%', height: 300 }}>
-        <ResponsiveContainer>
-          <LineChart data={historial}>
+      
+      {/* 2. Solución al error -1: Agregamos minHeight al contenedor */}
+      <div style={{ width: '100%', height: 350, minHeight: 350 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={historial} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+            
+            {/* 3. Protección en el formato de fecha por si alguna viene nula */}
             <XAxis 
               dataKey="fecha" 
               tick={{fontSize: 10}} 
-              tickFormatter={(str) => str.split(' ')[0]} 
+              tickFormatter={(str) => str ? str.split(' ')[0] : ''} 
             />
+            
             <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12}} />
-            <Tooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-            <ReferenceLine y={pesoObjetivo} label="Meta" stroke="green" strokeDasharray="3 3" />
-            <Line type="monotone" dataKey="peso" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 8 }} />
+            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+            
+            {/* Línea de meta */}
+            {pesoObjetivo && <ReferenceLine y={pesoObjetivo} label="Meta" stroke="green" strokeDasharray="3 3" />}
+            
+            <Line type="monotone" dataKey="peso" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -115,21 +130,28 @@ function App() {
         </div>
       </div>
 
-      {/* GRÁFICO (Unificado) */}
-      <div className="card">
-        <h3 className="card-header">📈 Evolución y Progreso</h3>
-        <div style={{ height: '350px', width: '100%' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={historial} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-              <XAxis dataKey="fecha" tick={{fontSize: 10}} tickFormatter={(str) => str.split(' ')[0]} />
-              <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12}} />
-              <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
-              <Line type="monotone" dataKey="peso" stroke="#10b981" name="Mi Peso Real" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      {/* GRÁFICO (Protegido para que no falle) */}
+<div className="card">
+  <h3 className="card-header">📈 Evolución y Progreso</h3>
+  <div style={{ height: '350px', width: '100%', minHeight: '350px' }}>
+    {/* Solo intentamos renderizar el gráfico si hay datos en el historial */}
+    {historial && historial.length > 0 ? (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={historial} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+          <XAxis dataKey="fecha" tick={{fontSize: 10}} tickFormatter={(str) => str ? str.split(' ')[0] : ''} />
+          <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12}} />
+          <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+          <Line type="monotone" dataKey="peso" stroke="#10b981" name="Mi Peso Real" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    ) : (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#6b7280' }}>
+        Cargando datos o esperando registros...
       </div>
+    )}
+  </div>
+</div>
 
       {/* HISTORIAL */}
       <div className="card">
