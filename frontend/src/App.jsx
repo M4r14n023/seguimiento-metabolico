@@ -55,6 +55,7 @@ function App() {
         grasa_objetivo: parseFloat(grasaObjetivo)
       });
       alert("¡Perfil y objetivos guardados con éxito!");
+      cargarHistorial(); // Forzamos a recargar el gráfico
     } catch (error) {
       console.error("Error al guardar config:", error);
       alert("Error al guardar el perfil");
@@ -105,31 +106,64 @@ function App() {
   const grasaAct = parseFloat(grasaActual) || 0;
   const grasaObj = parseFloat(grasaObjetivo) || 0;
   
-  // 1. Calcular la meta final en kilos
   let pesoObjetivoCalculado = 0;
   if (pesoInit > 0 && grasaObj < 100) {
     const masaMagra = pesoInit - (pesoInit * (grasaAct / 100));
     pesoObjetivoCalculado = masaMagra / (1 - (grasaObj / 100));
   }
 
-  // 2. Generar los puntos de la "Curva Ideal" para cada fecha del historial
-  const historialConIdeal = historial.map((registro, index) => {
-    // Tomamos la fecha del primer pesaje como el "Día 0"
-    const fechaPrimerRegistro = new Date(historial[0].fecha.split(' ')[0]);
-    const fechaActual = new Date(registro.fecha.split(' ')[0]);
-    
-    // Calculamos cuántas semanas pasaron entre el primer registro y este
-    const diffDias = Math.max(0, (fechaActual - fechaPrimerRegistro) / (1000 * 60 * 60 * 24));
-    const semanasTranscurridas = diffDias / 7;
-    
-    // Fórmula de interés compuesto: pierde 0.7% por semana
-    const pesoIdealEnEstaFecha = pesoInit * Math.pow(0.993, semanasTranscurridas);
-    
-    return {
-      ...registro,
-      peso_ideal: parseFloat(pesoIdealEnEstaFecha.toFixed(1))
+  // Armamos un nuevo dataset fusionando el historial con el futuro
+  let datosGrafico = [];
+
+  if (historial.length > 0) {
+    const parseFecha = (fechaStr) => {
+      const [año, mes, dia] = fechaStr.split(' ')[0].split('-');
+      return new Date(año, mes - 1, dia);
     };
-  });
+
+    const fechaInicio = parseFecha(historial[0].fecha);
+
+    // 1. Cargamos tu historial real
+    historial.forEach(reg => {
+      const fechaActual = parseFecha(reg.fecha);
+      const diffDias = (fechaActual - fechaInicio) / (1000 * 60 * 60 * 24);
+      const semanas = diffDias / 7;
+      const pesoIdeal = pesoInit * Math.pow(0.993, semanas);
+
+      datosGrafico.push({
+        fecha: reg.fecha.split(' ')[0],
+        peso: reg.peso,
+        peso_ideal: parseFloat(pesoIdeal.toFixed(1))
+      });
+    });
+
+    // 2. Proyectamos el futuro (12 semanas adelante)
+    let fechaUltima = parseFecha(historial[historial.length - 1].fecha);
+
+    for (let i = 1; i <= 12; i++) {
+      let fechaFutura = new Date(fechaUltima);
+      fechaFutura.setDate(fechaFutura.getDate() + (i * 7)); // Avanzamos de a 7 días
+
+      const diffDias = (fechaFutura - fechaInicio) / (1000 * 60 * 60 * 24);
+      const semanas = diffDias / 7;
+      const pesoIdeal = pesoInit * Math.pow(0.993, semanas);
+
+      const dia = String(fechaFutura.getDate()).padStart(2, '0');
+      const mes = String(fechaFutura.getMonth() + 1).padStart(2, '0');
+      const año = fechaFutura.getFullYear();
+
+      datosGrafico.push({
+        fecha: `${año}-${mes}-${dia}`,
+        // ¡Ojo! Acá no ponemos 'peso', así tu línea real verde frena en el día de hoy
+        peso_ideal: parseFloat(pesoIdeal.toFixed(1))
+      });
+
+      // Si cruzamos la meta, frenamos la proyección para no dibujar de más
+      if (pesoObjetivoCalculado > 0 && pesoIdeal <= pesoObjetivoCalculado) {
+        break;
+      }
+    }
+  }
 
   return (
     <div className="app-container">
@@ -194,9 +228,9 @@ function App() {
       <div className="card">
         <h3 className="card-header">📈 Evolución y Progreso</h3>
         <div style={{ height: '350px', width: '100%', minHeight: '350px' }}>
-          {historialConIdeal && historialConIdeal.length > 0 ? (
+          {datosGrafico && datosGrafico.length > 0 ? (
             <ResponsiveContainer width="99%" height="100%">
-              <LineChart data={historialConIdeal} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+              <LineChart data={datosGrafico} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 
                 <XAxis dataKey="fecha" tick={{fontSize: 10, fill: '#374151'}} tickFormatter={(str) => str ? str.split(' ')[0] : ''} />
@@ -206,11 +240,8 @@ function App() {
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', color: '#1f2937' }}
                   itemStyle={{ fontWeight: 'bold' }}
                 />
-                
-                {/* Agregamos una leyenda para que se entienda qué es cada línea */}
                 <Legend wrapperStyle={{ paddingTop: '10px' }}/>
 
-                {/* Línea de Meta Final */}
                 {pesoObjetivoCalculado > 0 && (
                   <ReferenceLine 
                     y={pesoObjetivoCalculado} 
@@ -220,7 +251,6 @@ function App() {
                   />
                 )}
                 
-                {/* LA NUEVA CURVA IDEAL (-0.7% semanal) */}
                 <Line 
                   type="monotone" 
                   dataKey="peso_ideal" 
@@ -232,7 +262,6 @@ function App() {
                   activeDot={false}
                 />
 
-                {/* TU PESO REAL */}
                 <Line 
                   type="monotone" 
                   dataKey="peso" 
@@ -241,6 +270,7 @@ function App() {
                   strokeWidth={3} 
                   dot={{ r: 4, fill: '#10b981' }} 
                   activeDot={{ r: 8 }} 
+                  connectNulls={true}
                 />
               </LineChart>
             </ResponsiveContainer>
