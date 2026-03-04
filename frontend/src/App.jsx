@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, ReferenceLine 
+  Tooltip, ResponsiveContainer, ReferenceLine, Legend 
 } from 'recharts'
 import SelectorGrasaVisual from './components/SelectorGrasaVisual'
 
@@ -100,20 +100,39 @@ function App() {
     );
   };
 
-  // --- CÁLCULO DE LA LÍNEA DE META ---
+  // --- CÁLCULOS MATEMÁTICOS PARA EL GRÁFICO ---
   const pesoInit = parseFloat(pesoInicial) || 0;
   const grasaAct = parseFloat(grasaActual) || 0;
   const grasaObj = parseFloat(grasaObjetivo) || 0;
   
+  // 1. Calcular la meta final en kilos
   let pesoObjetivoCalculado = 0;
   if (pesoInit > 0 && grasaObj < 100) {
     const masaMagra = pesoInit - (pesoInit * (grasaAct / 100));
     pesoObjetivoCalculado = masaMagra / (1 - (grasaObj / 100));
   }
 
+  // 2. Generar los puntos de la "Curva Ideal" para cada fecha del historial
+  const historialConIdeal = historial.map((registro, index) => {
+    // Tomamos la fecha del primer pesaje como el "Día 0"
+    const fechaPrimerRegistro = new Date(historial[0].fecha.split(' ')[0]);
+    const fechaActual = new Date(registro.fecha.split(' ')[0]);
+    
+    // Calculamos cuántas semanas pasaron entre el primer registro y este
+    const diffDias = Math.max(0, (fechaActual - fechaPrimerRegistro) / (1000 * 60 * 60 * 24));
+    const semanasTranscurridas = diffDias / 7;
+    
+    // Fórmula de interés compuesto: pierde 0.7% por semana
+    const pesoIdealEnEstaFecha = pesoInit * Math.pow(0.993, semanasTranscurridas);
+    
+    return {
+      ...registro,
+      peso_ideal: parseFloat(pesoIdealEnEstaFecha.toFixed(1))
+    };
+  });
+
   return (
     <div className="app-container">
-      {/* Se agregó "color: #111827;" a .input-modern para que el texto sea oscuro */}
       <style>{`
         html, body { margin: 0; padding: 0; width: 100%; background-color: #f3f4f6; color: #1f2937; font-family: system-ui, -apple-system, sans-serif; }
         #root { width: 100%; display: flex; justify-content: center; }
@@ -175,15 +194,23 @@ function App() {
       <div className="card">
         <h3 className="card-header">📈 Evolución y Progreso</h3>
         <div style={{ height: '350px', width: '100%', minHeight: '350px' }}>
-          {historial && historial.length > 0 ? (
+          {historialConIdeal && historialConIdeal.length > 0 ? (
             <ResponsiveContainer width="99%" height="100%">
-              <LineChart data={historial} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+              <LineChart data={historialConIdeal} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="fecha" tick={{fontSize: 10}} tickFormatter={(str) => str ? str.split(' ')[0] : ''} />
-                <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12}} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
                 
-                {/* Acá está la famosa línea de meta restaurada */}
+                <XAxis dataKey="fecha" tick={{fontSize: 10, fill: '#374151'}} tickFormatter={(str) => str ? str.split(' ')[0] : ''} />
+                <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12, fill: '#374151'}} />
+                
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', color: '#1f2937' }}
+                  itemStyle={{ fontWeight: 'bold' }}
+                />
+                
+                {/* Agregamos una leyenda para que se entienda qué es cada línea */}
+                <Legend wrapperStyle={{ paddingTop: '10px' }}/>
+
+                {/* Línea de Meta Final */}
                 {pesoObjetivoCalculado > 0 && (
                   <ReferenceLine 
                     y={pesoObjetivoCalculado} 
@@ -193,7 +220,28 @@ function App() {
                   />
                 )}
                 
-                <Line type="monotone" dataKey="peso" stroke="#10b981" name="Mi Peso Real" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
+                {/* LA NUEVA CURVA IDEAL (-0.7% semanal) */}
+                <Line 
+                  type="monotone" 
+                  dataKey="peso_ideal" 
+                  name="Curva Ideal (-0.7%)" 
+                  stroke="#9ca3af" 
+                  strokeWidth={2} 
+                  strokeDasharray="5 5" 
+                  dot={false} 
+                  activeDot={false}
+                />
+
+                {/* TU PESO REAL */}
+                <Line 
+                  type="monotone" 
+                  dataKey="peso" 
+                  name="Mi Peso Real" 
+                  stroke="#10b981" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, fill: '#10b981' }} 
+                  activeDot={{ r: 8 }} 
+                />
               </LineChart>
             </ResponsiveContainer>
           ) : (
