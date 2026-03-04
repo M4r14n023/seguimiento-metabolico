@@ -17,15 +17,16 @@ app.add_middleware(
 
 # 👇 PEGA TU URL DE SUPABASE AQUÍ (Asegúrate de poner tu contraseña real)
 DATABASE_URL = "postgresql://postgres.onbmnhdatgjfvyslqxqr:y2)%3DoV3cvo%40%40%3Bipa%2BQGv@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
+
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
 
-# --- CONFIGURACIÓN DE BASE DE DATOS ---
+# --- CONFIGURACIÓN Y MIGRACIÓN AUTOMÁTICA DE BASE DE DATOS ---
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # En Postgres el autoincremental se llama SERIAL
+    # 1. Crear tablas si no existen
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS registros_peso (
             id SERIAL PRIMARY KEY,
@@ -37,53 +38,85 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS configuracion (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
+            usuario TEXT PRIMARY KEY,
             peso_inicial REAL,
+            cintura_inicial REAL,
             grasa_actual REAL,
             grasa_objetivo REAL
         )
     ''')
     
-    cursor.execute('SELECT count(*) FROM configuracion')
-    if cursor.fetchone()[0] == 0:
-        cursor.execute('INSERT INTO configuracion (id, peso_inicial, grasa_actual, grasa_objetivo) VALUES (1, 80.0, 20.0, 12.0)')
-        
+    # 2. Actualizar tabla registros_peso (Agregar nuevas columnas si no existen)
+    columnas_peso = [
+        ("usuario", "TEXT DEFAULT 'Mariano'"),
+        ("gym", "BOOLEAN DEFAULT FALSE"),
+        ("tenis", "BOOLEAN DEFAULT FALSE"),
+        ("casa", "BOOLEAN DEFAULT FALSE")
+    ]
+    for col, tipo in columnas_peso:
+        try:
+            cursor.execute(f"ALTER TABLE registros_peso ADD COLUMN {col} {tipo}")
+            conn.commit()
+        except Exception:
+            conn.rollback() # Si falla, es porque la columna ya existe
+
+    # 3. Actualizar tabla configuracion
+    try:
+        cursor.execute("ALTER TABLE configuracion ADD COLUMN cintura_inicial REAL DEFAULT 0.0")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # Insertar perfiles por defecto si no existen
+    cursor.execute("INSERT INTO configuracion (usuario, peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo) VALUES ('Mariano', 80.0, 85.0, 20.0, 12.0) ON CONFLICT DO NOTHING")
+    cursor.execute("INSERT INTO configuracion (usuario, peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo) VALUES ('Novia', 60.0, 70.0, 25.0, 18.0) ON CONFLICT DO NOTHING")
+    
     conn.commit()
     conn.close()
 
-# Inicializamos las tablas en Supabase
 init_db()
 
 # --- MODELOS DE DATOS ---
 class RegistroPeso(BaseModel):
+    usuario: str
     peso: float
     cintura: Optional[float] = None
+    gym: bool = False
+    tenis: bool = False
+    casa: bool = False
 
 class ConfigModel(BaseModel):
+    usuario: str
     peso_inicial: float
+    cintura_inicial: float
     grasa_actual: float
     grasa_objetivo: float
 
 # --- RUTAS DE LA API ---
-@app.get("/api/config")
-def obtener_config():
+@app.get("/api/config/{usuario}")
+def obtener_config(usuario: str):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT peso_inicial, grasa_actual, grasa_objetivo FROM configuracion WHERE id = 1")
+    cursor.execute("SELECT peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo FROM configuracion WHERE usuario = %s", (usuario,))
     fila = cursor.fetchone()
     conn.close()
-    return {"peso_inicial": fila[0], "grasa_actual": fila[1], "grasa_objetivo": fila[2]}
+    if fila:
+        return {"peso_inicial": fila[0], "cintura_inicial": fila[1], "grasa_actual": fila[2], "grasa_objetivo": fila[3]}
+    return {}
 
 @app.post("/api/config")
 def guardar_config(config: ConfigModel):
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Postgres usa %s en lugar de ? para inyectar variables
     cursor.execute('''
-        UPDATE configuracion 
-        SET peso_inicial = %s, grasa_actual = %s, grasa_objetivo = %s 
-        WHERE id = 1
-    ''', (config.peso_inicial, config.grasa_actual, config.grasa_objetivo))
+        INSERT INTO configuracion (usuario, peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo) 
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (usuario) DO UPDATE 
+        SET peso_inicial = EXCLUDED.peso_inicial, 
+            cintura_inicial = EXCLUDED.cintura_inicial,
+            grasa_actual = EXCLUDED.grasa_actual, 
+            grasa_objetivo = EXCLUDED.grasa_objetivo
+    ''', (config.usuario, config.peso_inicial, config.cintura_inicial, config.grasa_actual, config.grasa_objetivo))
     conn.commit()
     conn.close()
     return {"mensaje": "Configuración actualizada"}
@@ -92,21 +125,37 @@ def guardar_config(config: ConfigModel):
 def registrar_peso(registro: RegistroPeso):
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    # LÓGICA MAGISTRAL: Si no manda cintura, buscamos la última.
+    cintura_final = registro.cintura
+    if not cintura_final:
+        cursor.execute("SELECT cintura FROM registros_peso WHERE usuario = %s AND cintura IS NOT NULL ORDER BY id DESC LIMIT 1", (registro.usuario,))
+        row = cursor.fetchone()
+        if row:
+            cintura_final = row[0]
+        else:
+            # Si no hay historial, busca la cintura inicial del perfil
+            cursor.execute("SELECT cintura_inicial FROM configuracion WHERE usuario = %s", (registro.usuario,))
+            row_conf = cursor.fetchone()
+            cintura_final = row_conf[0] if row_conf else None
+
     fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M")
-    cursor.execute("INSERT INTO registros_peso (fecha, peso, cintura) VALUES (%s, %s, %s)", 
-                   (fecha_actual, registro.peso, registro.cintura))
+    cursor.execute("""
+        INSERT INTO registros_peso (fecha, peso, cintura, usuario, gym, tenis, casa) 
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+    """, (fecha_actual, registro.peso, cintura_final, registro.usuario, registro.gym, registro.tenis, registro.casa))
     conn.commit()
     conn.close()
     return {"mensaje": "Registro guardado con éxito"}
 
-@app.get("/api/historial")
-def obtener_historial():
+@app.get("/api/historial/{usuario}")
+def obtener_historial(usuario: str):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, fecha, peso, cintura FROM registros_peso ORDER BY id ASC")
+    cursor.execute("SELECT id, fecha, peso, cintura, gym, tenis, casa FROM registros_peso WHERE usuario = %s ORDER BY id ASC", (usuario,))
     filas = cursor.fetchall()
     conn.close()
-    return [{"id": f[0], "fecha": f[1], "peso": f[2], "cintura": f[3]} for f in filas]
+    return [{"id": f[0], "fecha": f[1], "peso": f[2], "cintura": f[3], "gym": f[4], "tenis": f[5], "casa": f[6]} for f in filas]
 
 @app.delete("/api/borrar_peso/{registro_id}")
 def borrar_peso(registro_id: int):
@@ -116,28 +165,3 @@ def borrar_peso(registro_id: int):
     conn.commit()
     conn.close()
     return {"mensaje": "Registro eliminado"}
-
-@app.post("/api/proyectar")
-def calcular_proyeccion(datos: ConfigModel):
-    grasa_kg = datos.peso_inicial * (datos.grasa_actual / 100)
-    masa_magra = datos.peso_inicial - grasa_kg
-    peso_objetivo = masa_magra / (1 - (datos.grasa_objetivo / 100))
-    
-    peso_simulado = datos.peso_inicial
-    semanas = 0
-    historial = []
-
-    while peso_simulado > peso_objetivo:
-        semanas += 1
-        perdida = peso_simulado * 0.007
-        peso_simulado -= perdida
-        historial.append({
-            "semana": f"Sem {semanas}",
-            "peso_ideal": round(peso_simulado, 2)
-        })
-
-    return {
-        "peso_objetivo": round(peso_objetivo, 2),
-        "semanas_estimadas": semanas,
-        "proyeccion": historial
-    }
