@@ -260,7 +260,7 @@ function App() {
 
       {/* AQUÍ ESTÁ EL NUEVO LOGO */}
       <div className="top-bar">
-        <img src="/logo-completo.png" alt="Metabolize Logo" className="logo-img" />
+      <img src="/img/logo-completo.png" alt="Metabolize Logo" className="logo-img" />
       </div>
 
       {/* SELECTOR DE USUARIOS */}
