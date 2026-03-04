@@ -7,17 +7,20 @@ import {
 import SelectorGrasaVisual from './components/SelectorGrasaVisual'
 
 function App() {
-  // --- ESTADO DEL USUARIO ACTIVO ---
   const [usuarioActivo, setUsuarioActivo] = useState('Mariano');
 
   // --- ESTADOS DE REGISTRO ---
   const [peso, setPeso] = useState('');
   const [cintura, setCintura] = useState('');
+  const [ayuno, setAyuno] = useState(''); // Estado para horas de ayuno
   const [gym, setGym] = useState(false);
   const [tenis, setTenis] = useState(false);
   const [casa, setCasa] = useState(false);
   const [historial, setHistorial] = useState([]);
   
+  // --- MODO EDICIÓN ---
+  const [editandoId, setEditandoId] = useState(null);
+
   // --- ESTADOS DE CONFIGURACIÓN ---
   const [pesoInicial, setPesoInicial] = useState(80);
   const [cinturaInicial, setCinturaInicial] = useState(85);
@@ -26,13 +29,17 @@ function App() {
 
   const API_URL = 'https://seguimiento-metabolico.onrender.com/api';
 
-  // Al cambiar de usuario, recargamos sus datos
   useEffect(() => {
     cargarHistorial();
     cargarConfiguracion();
-    // Limpiamos los inputs al cambiar de cuenta
-    setPeso(''); setCintura(''); setGym(false); setTenis(false); setCasa(false);
+    limpiarFormulario();
   }, [usuarioActivo]);
+
+  const limpiarFormulario = () => {
+    setPeso(''); setCintura(''); setAyuno(''); 
+    setGym(false); setTenis(false); setCasa(false);
+    setEditandoId(null);
+  };
 
   const cargarHistorial = async () => {
     try {
@@ -75,22 +82,47 @@ function App() {
 
   const guardarRegistro = async () => {
     if (!peso) return alert("Por favor, ingresa tu peso.");
-    
     try {
       await axios.post(`${API_URL}/registrar_peso`, {
         usuario: usuarioActivo,
         peso: parseFloat(peso),
         cintura: cintura ? parseFloat(cintura) : null,
-        gym: gym,
-        tenis: tenis,
-        casa: casa
+        ayuno: ayuno ? parseFloat(ayuno) : 0,
+        gym: gym, tenis: tenis, casa: casa
       });
-      // Reseteamos el formulario
-      setPeso(''); setCintura(''); setGym(false); setTenis(false); setCasa(false);
+      limpiarFormulario();
       cargarHistorial();
     } catch (error) {
       alert("Hubo un error al guardar el registro.");
     }
+  };
+
+  const actualizarRegistro = async () => {
+    if (!peso) return alert("Por favor, ingresa tu peso.");
+    try {
+      await axios.put(`${API_URL}/editar_peso/${editandoId}`, {
+        peso: parseFloat(peso),
+        cintura: cintura ? parseFloat(cintura) : null,
+        ayuno: ayuno ? parseFloat(ayuno) : 0,
+        gym: gym, tenis: tenis, casa: casa
+      });
+      limpiarFormulario();
+      cargarHistorial();
+    } catch (error) {
+      alert("Hubo un error al actualizar el registro.");
+    }
+  };
+
+  const cargarParaEditar = (reg) => {
+    setPeso(reg.peso);
+    setCintura(reg.cintura || '');
+    setAyuno(reg.ayuno || '');
+    setGym(reg.gym);
+    setTenis(reg.tenis);
+    setCasa(reg.casa);
+    setEditandoId(reg.id);
+    // Scrollear hacia arriba suavemente
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const borrarRegistro = async (id) => {
@@ -174,32 +206,40 @@ function App() {
         #root { width: 100%; display: flex; justify-content: center; }
         .app-container { max-width: 900px; width: 100%; padding: 30px 20px; box-sizing: border-box; }
         
-        /* Estilos del Switcher de Usuarios */
         .user-switcher { display: flex; background: #e5e7eb; border-radius: 12px; padding: 4px; margin-bottom: 30px; }
         .user-btn { flex: 1; padding: 12px; border: none; background: transparent; font-size: 16px; font-weight: 700; color: #6b7280; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
         .user-btn.active { background: white; color: #111827; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
-        /* Botones de Actividad */
         .actividad-group { display: flex; gap: 10px; margin-top: 15px; }
         .btn-actividad { flex: 1; padding: 10px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; font-size: 18px; cursor: pointer; transition: all 0.2s; filter: grayscale(100%); opacity: 0.6; }
         .btn-actividad.active { border-color: #3b82f6; filter: grayscale(0%); opacity: 1; background: #eff6ff; }
 
         .titulo-principal { text-align: center; font-size: 32px; font-weight: 800; color: #111827; margin-bottom: 20px; letter-spacing: -0.5px; }
-        .card { background: #ffffff; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 24px; border: 1px solid #f3f4f6; }
+        .card { background: #ffffff; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 24px; border: 1px solid #f3f4f6; transition: all 0.3s; }
         .card-azul { background: #f0f9ff; border: 1px solid #bae6fd; }
+        .card-edicion { border: 2px solid #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+        
         .card-header { font-size: 18px; font-weight: 700; color: #1f2937; margin-top: 0; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f3f4f6; padding-bottom: 12px; }
         .form-row { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
         .input-group { display: flex; flex-direction: column; gap: 6px; }
         .label { font-size: 13px; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.5px; }
         .input-modern { padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; outline: none; background: #ffffff; color: #111827; width: 120px; }
+        
         .btn-guardar { background: #10b981; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; width: 100%; margin-top: 15px;}
+        .btn-actualizar { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; flex: 2;}
+        .btn-cancelar { background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; flex: 1;}
         .btn-perfil { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; }
-        .btn-borrar { background: #fee2e2; color: #ef4444; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        
+        .btn-accion-mini { background: #f3f4f6; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 16px; transition: all 0.2s;}
+        .btn-accion-mini:hover { background: #e5e7eb; }
+        .btn-accion-mini.borrar { background: #fee2e2; color: #ef4444; }
+        
         .lista-historial { list-style: none; padding: 0; margin: 0; }
         .item-historial { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid #e5e7eb; }
         .badge { padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
         .badge-peso { background: #dcfce7; color: #166534; }
         .badge-cintura { background: #fef3c7; color: #b45309; }
+        .badge-ayuno { background: #ede9fe; color: #6d28d9; }
       `}</style>
 
       {/* SELECTOR DE USUARIOS */}
@@ -235,28 +275,41 @@ function App() {
         <SelectorGrasaVisual grasaActual={grasaActual} setGrasaActual={setGrasaActual} />
       </div>
 
-      {/* REGISTRO DIARIO CON ACTIVIDADES */}
-      <div className="card">
-        <h3 className="card-header">⚖️ Cargar Nuevo Registro</h3>
+      {/* REGISTRO DIARIO / EDICIÓN */}
+      <div className={`card ${editandoId ? 'card-edicion' : ''}`}>
+        <h3 className="card-header">
+          {editandoId ? '✏️ Editando Registro' : '⚖️ Cargar Nuevo Registro'}
+        </h3>
         <div className="form-row">
           <div className="input-group">
-            <label className="label">Peso Actual (kg) *</label>
+            <label className="label">Peso (kg) *</label>
             <input type="number" step="0.1" value={peso} onChange={(e) => setPeso(e.target.value)} className="input-modern" placeholder="Ej: 75.5" />
           </div>
           <div className="input-group">
-            <label className="label">Cintura (Opcional)</label>
-            <input type="number" step="0.1" value={cintura} onChange={(e) => setCintura(e.target.value)} className="input-modern" placeholder="Hereda anterior" />
+            <label className="label">Cintura (cm)</label>
+            <input type="number" step="0.1" value={cintura} onChange={(e) => setCintura(e.target.value)} className="input-modern" placeholder="Hereda" />
+          </div>
+          <div className="input-group">
+            <label className="label">Ayuno (hs)</label>
+            <input type="number" step="0.5" value={ayuno} onChange={(e) => setAyuno(e.target.value)} className="input-modern" placeholder="Ej: 16" />
           </div>
         </div>
 
-        <label className="label" style={{display: 'block', marginTop: '15px'}}>Actividad Física del Día (Opcional)</label>
+        <label className="label" style={{display: 'block', marginTop: '15px'}}>Actividad Física del Día</label>
         <div className="actividad-group">
           <button type="button" onClick={() => setGym(!gym)} className={`btn-actividad ${gym ? 'active' : ''}`}>🏋️‍♂️ Gym</button>
           <button type="button" onClick={() => setTenis(!tenis)} className={`btn-actividad ${tenis ? 'active' : ''}`}>🎾 Tenis</button>
           <button type="button" onClick={() => setCasa(!casa)} className={`btn-actividad ${casa ? 'active' : ''}`}>🏠 Casa</button>
         </div>
 
-        <button onClick={guardarRegistro} className="btn-guardar">➕ Guardar Datos</button>
+        {editandoId ? (
+          <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+            <button onClick={actualizarRegistro} className="btn-actualizar">💾 Actualizar Datos</button>
+            <button onClick={limpiarFormulario} className="btn-cancelar">❌ Cancelar</button>
+          </div>
+        ) : (
+          <button onClick={guardarRegistro} className="btn-guardar">➕ Guardar Datos</button>
+        )}
       </div>
 
       {/* GRÁFICO DE PESO */}
@@ -286,7 +339,7 @@ function App() {
         </div>
       </div>
 
-      {/* NUEVO GRÁFICO DE CINTURA */}
+      {/* GRÁFICO DE CINTURA */}
       <div className="card">
         <h3 className="card-header">📏 Evolución de la Cintura</h3>
         <div style={{ height: '250px', width: '100%', minHeight: '250px' }}>
@@ -307,7 +360,7 @@ function App() {
         </div>
       </div>
 
-      {/* HISTORIAL CON ÍCONOS DE ACTIVIDAD */}
+      {/* HISTORIAL CON BOTÓN DE EDITAR */}
       <div className="card">
         <h3 className="card-header">📝 Historial de Registros</h3>
         <ul className="lista-historial">
@@ -318,8 +371,8 @@ function App() {
                 <div style={{marginTop: '8px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px'}}>
                   <span className="badge badge-peso">⚖️ {reg.peso} kg</span>
                   {reg.cintura && <span className="badge badge-cintura">📏 {reg.cintura} cm</span>}
+                  {reg.ayuno > 0 && <span className="badge badge-ayuno">⏳ {reg.ayuno} hs</span>}
                   
-                  {/* Íconos de actividad */}
                   {(reg.gym || reg.tenis || reg.casa) && (
                     <div style={{ display: 'flex', gap: '4px', background: '#f3f4f6', padding: '4px 8px', borderRadius: '12px' }}>
                       {reg.gym && <span title="Gym">🏋️‍♂️</span>}
@@ -329,7 +382,11 @@ function App() {
                   )}
                 </div>
               </div>
-              <button onClick={() => borrarRegistro(reg.id)} className="btn-borrar">🗑️</button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {/* Botón de Editar */}
+                <button onClick={() => cargarParaEditar(reg)} className="btn-accion-mini" title="Editar registro">✏️</button>
+                <button onClick={() => borrarRegistro(reg.id)} className="btn-accion-mini borrar" title="Borrar registro">🗑️</button>
+              </div>
             </li>
           ))}
           {historial.length === 0 && <p style={{ color: '#6b7280', textAlign: 'center', paddingTop: '10px' }}>No hay registros para mostrar.</p>}

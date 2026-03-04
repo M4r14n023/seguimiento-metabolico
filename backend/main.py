@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 👇 PEGA TU URL DE SUPABASE AQUÍ (Asegúrate de poner tu contraseña real)
+# 👇 TU URL DE SUPABASE INTACTA
 DATABASE_URL = "postgresql://postgres.onbmnhdatgjfvyslqxqr:y2)%3DoV3cvo%40%40%3Bipa%2BQGv@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
 
 def get_db_connection():
@@ -53,15 +53,15 @@ def init_db():
             grasa_objetivo REAL
         )
     ''')
-    # OBLIGAMOS a guardar la creación de las tablas AHORA MISMO
     conn.commit() 
     
-    # 3. ACTUALIZAMOS COLUMNAS DE REGISTRO (Por si la tabla ya existía)
+    # 3. ACTUALIZAMOS COLUMNAS DE REGISTRO (Agregamos Ayuno)
     columnas_peso = [
         ("usuario", "TEXT DEFAULT 'Mariano'"),
         ("gym", "BOOLEAN DEFAULT FALSE"),
         ("tenis", "BOOLEAN DEFAULT FALSE"),
-        ("casa", "BOOLEAN DEFAULT FALSE")
+        ("casa", "BOOLEAN DEFAULT FALSE"),
+        ("ayuno", "REAL DEFAULT 0.0") # <-- NUEVA COLUMNA DE AYUNO
     ]
     for col, tipo in columnas_peso:
         try:
@@ -70,14 +70,13 @@ def init_db():
         except Exception:
             conn.rollback()
 
-    # 4. INSERTAMOS PERFILES (Ahora estamos seguros de que la tabla 'configuracion' existe)
+    # 4. INSERTAMOS PERFILES
     cursor.execute("INSERT INTO configuracion (usuario, peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo) VALUES ('Mariano', 80.0, 85.0, 20.0, 12.0) ON CONFLICT DO NOTHING")
     cursor.execute("INSERT INTO configuracion (usuario, peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo) VALUES ('Gordito', 60.0, 70.0, 25.0, 18.0) ON CONFLICT DO NOTHING")
     
     conn.commit()
     conn.close()
 
-# Ejecutamos la base al arrancar
 init_db()
 
 # --- MODELOS DE DATOS ---
@@ -88,6 +87,15 @@ class RegistroPeso(BaseModel):
     gym: bool = False
     tenis: bool = False
     casa: bool = False
+    ayuno: Optional[float] = 0.0
+
+class RegistroEdit(BaseModel):
+    peso: float
+    cintura: Optional[float] = None
+    gym: bool = False
+    tenis: bool = False
+    casa: bool = False
+    ayuno: Optional[float] = 0.0
 
 class ConfigModel(BaseModel):
     usuario: str
@@ -130,7 +138,6 @@ def registrar_peso(registro: RegistroPeso):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Buscamos la cintura si no la escribió
     cintura_final = registro.cintura
     if not cintura_final:
         cursor.execute("SELECT cintura FROM registros_peso WHERE usuario = %s AND cintura IS NOT NULL ORDER BY id DESC LIMIT 1", (registro.usuario,))
@@ -144,21 +151,36 @@ def registrar_peso(registro: RegistroPeso):
 
     fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M")
     cursor.execute("""
-        INSERT INTO registros_peso (fecha, peso, cintura, usuario, gym, tenis, casa) 
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """, (fecha_actual, registro.peso, cintura_final, registro.usuario, registro.gym, registro.tenis, registro.casa))
+        INSERT INTO registros_peso (fecha, peso, cintura, usuario, gym, tenis, casa, ayuno) 
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    """, (fecha_actual, registro.peso, cintura_final, registro.usuario, registro.gym, registro.tenis, registro.casa, registro.ayuno))
     conn.commit()
     conn.close()
     return {"mensaje": "Registro guardado con éxito"}
+
+# <-- NUEVA RUTA PARA EDITAR -->
+@app.put("/api/editar_peso/{registro_id}")
+def editar_peso(registro_id: int, registro: RegistroEdit):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE registros_peso 
+        SET peso = %s, cintura = %s, gym = %s, tenis = %s, casa = %s, ayuno = %s
+        WHERE id = %s
+    """, (registro.peso, registro.cintura, registro.gym, registro.tenis, registro.casa, registro.ayuno, registro_id))
+    conn.commit()
+    conn.close()
+    return {"mensaje": "Registro actualizado"}
 
 @app.get("/api/historial/{usuario}")
 def obtener_historial(usuario: str):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, fecha, peso, cintura, gym, tenis, casa FROM registros_peso WHERE usuario = %s ORDER BY id ASC", (usuario,))
+    # Le agregamos 'ayuno' a la búsqueda
+    cursor.execute("SELECT id, fecha, peso, cintura, gym, tenis, casa, ayuno FROM registros_peso WHERE usuario = %s ORDER BY id ASC", (usuario,))
     filas = cursor.fetchall()
     conn.close()
-    return [{"id": f[0], "fecha": f[1], "peso": f[2], "cintura": f[3], "gym": f[4], "tenis": f[5], "casa": f[6]} for f in filas]
+    return [{"id": f[0], "fecha": f[1], "peso": f[2], "cintura": f[3], "gym": f[4], "tenis": f[5], "casa": f[6], "ayuno": f[7]} for f in filas]
 
 @app.delete("/api/borrar_peso/{registro_id}")
 def borrar_peso(registro_id: int):
