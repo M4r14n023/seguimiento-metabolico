@@ -21,11 +21,21 @@ DATABASE_URL = "postgresql://postgres.onbmnhdatgjfvyslqxqr:y2)%3DoV3cvo%40%40%3B
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
 
-# --- CONFIGURACIÓN Y MIGRACIÓN AUTOMÁTICA DE BASE DE DATOS ---
+# --- CONFIGURACIÓN DE BASE DE DATOS ---
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # --- TRUCO DE MIGRACIÓN PARA LA CONFIGURACIÓN ---
+    # Revisamos si existe la tabla vieja (la que tenía un 'id' en vez de 'usuario'). 
+    # Si existe, la borramos para crear la nueva estructura multipersonal.
+    try:
+        cursor.execute("SELECT id FROM configuracion LIMIT 1")
+        cursor.execute("DROP TABLE configuracion")
+        conn.commit()
+    except Exception:
+        conn.rollback() # Si da error, es porque no existe o ya es la tabla nueva
+
     # 1. Crear tablas si no existen
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS registros_peso (
@@ -46,7 +56,7 @@ def init_db():
         )
     ''')
     
-    # 2. Actualizar tabla registros_peso (Agregar nuevas columnas si no existen)
+    # 2. Actualizar tabla registros_peso (Agregamos las columnas si es la primera vez)
     columnas_peso = [
         ("usuario", "TEXT DEFAULT 'Mariano'"),
         ("gym", "BOOLEAN DEFAULT FALSE"),
@@ -60,20 +70,14 @@ def init_db():
         except Exception:
             conn.rollback() # Si falla, es porque la columna ya existe
 
-    # 3. Actualizar tabla configuracion
-    try:
-        cursor.execute("ALTER TABLE configuracion ADD COLUMN cintura_inicial REAL DEFAULT 0.0")
-        conn.commit()
-    except Exception:
-        conn.rollback()
-
-    # Insertar perfiles por defecto si no existen
+    # 3. Insertar perfiles por defecto si están vacíos
     cursor.execute("INSERT INTO configuracion (usuario, peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo) VALUES ('Mariano', 80.0, 85.0, 20.0, 12.0) ON CONFLICT DO NOTHING")
-    cursor.execute("INSERT INTO configuracion (usuario, peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo) VALUES ('Novia', 60.0, 70.0, 25.0, 18.0) ON CONFLICT DO NOTHING")
+    cursor.execute("INSERT INTO configuracion (usuario, peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo) VALUES ('Gordito', 60.0, 70.0, 25.0, 18.0) ON CONFLICT DO NOTHING")
     
     conn.commit()
     conn.close()
 
+# Ejecutamos la base al arrancar
 init_db()
 
 # --- MODELOS DE DATOS ---
@@ -126,7 +130,7 @@ def registrar_peso(registro: RegistroPeso):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # LÓGICA MAGISTRAL: Si no manda cintura, buscamos la última.
+    # Buscamos la cintura si no la escribió
     cintura_final = registro.cintura
     if not cintura_final:
         cursor.execute("SELECT cintura FROM registros_peso WHERE usuario = %s AND cintura IS NOT NULL ORDER BY id DESC LIMIT 1", (registro.usuario,))
@@ -134,7 +138,6 @@ def registrar_peso(registro: RegistroPeso):
         if row:
             cintura_final = row[0]
         else:
-            # Si no hay historial, busca la cintura inicial del perfil
             cursor.execute("SELECT cintura_inicial FROM configuracion WHERE usuario = %s", (registro.usuario,))
             row_conf = cursor.fetchone()
             cintura_final = row_conf[0] if row_conf else None

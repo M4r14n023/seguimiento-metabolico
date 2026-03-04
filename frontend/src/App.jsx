@@ -207,7 +207,7 @@ function App() {
         <button className={`user-btn ${usuarioActivo === 'Mariano' ? 'active' : ''}`} onClick={() => setUsuarioActivo('Mariano')}>
           🧑🏻 Mariano
         </button>
-        <button className={`user-btn ${usuarioActivo === 'Gordito' ? 'active' : ''}`} onClick={() => setUsuarioActivo('Novia')}>
+        <button className={`user-btn ${usuarioActivo === 'Gordito' ? 'active' : ''}`} onClick={() => setUsuarioActivo('Gordito')}>
           👩🏻 Gordito
         </button>
       </div>
