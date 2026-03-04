@@ -12,7 +12,7 @@ function App() {
   // --- ESTADOS DE REGISTRO ---
   const [peso, setPeso] = useState('');
   const [cintura, setCintura] = useState('');
-  const [ayuno, setAyuno] = useState(''); // Estado para horas de ayuno
+  const [ayuno, setAyuno] = useState('');
   const [gym, setGym] = useState(false);
   const [tenis, setTenis] = useState(false);
   const [casa, setCasa] = useState(false);
@@ -121,7 +121,6 @@ function App() {
     setTenis(reg.tenis);
     setCasa(reg.casa);
     setEditandoId(reg.id);
-    // Scrollear hacia arriba suavemente
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -146,7 +145,7 @@ function App() {
     );
   };
 
-  // --- CÁLCULOS DEL GRÁFICO DE PESO ---
+  // --- CÁLCULOS DEL GRÁFICO ---
   const pesoInit = parseFloat(pesoInicial) || 0;
   const grasaAct = parseFloat(grasaActual) || 0;
   const grasaObj = parseFloat(grasaObjetivo) || 0;
@@ -204,20 +203,36 @@ function App() {
       <style>{`
         html, body { margin: 0; padding: 0; width: 100%; background-color: #f3f4f6; color: #1f2937; font-family: system-ui, -apple-system, sans-serif; }
         #root { width: 100%; display: flex; justify-content: center; }
-        .app-container { max-width: 900px; width: 100%; padding: 30px 20px; box-sizing: border-box; }
+        .app-container { max-width: 900px; width: 100%; padding: 20px 20px 40px 20px; box-sizing: border-box; }
         
-        .user-switcher { display: flex; background: #e5e7eb; border-radius: 12px; padding: 4px; margin-bottom: 30px; }
+        /* NUEVO HEADER CON EL LOGO */
+        .top-bar {
+          background-color: #0b1328; /* Azul oscuro que funde con tu logo */
+          border-radius: 16px;
+          padding: 15px;
+          margin-bottom: 24px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);
+        }
+        .logo-img {
+          max-width: 100%;
+          max-height: 90px;
+          object-fit: contain;
+        }
+
+        .user-switcher { display: flex; background: #e5e7eb; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
         .user-btn { flex: 1; padding: 12px; border: none; background: transparent; font-size: 16px; font-weight: 700; color: #6b7280; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-        .user-btn.active { background: white; color: #111827; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .user-btn.active { background: white; color: #0b1328; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
         .actividad-group { display: flex; gap: 10px; margin-top: 15px; }
         .btn-actividad { flex: 1; padding: 10px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; font-size: 18px; cursor: pointer; transition: all 0.2s; filter: grayscale(100%); opacity: 0.6; }
-        .btn-actividad.active { border-color: #3b82f6; filter: grayscale(0%); opacity: 1; background: #eff6ff; }
+        .btn-actividad.active { border-color: #84cc16; filter: grayscale(0%); opacity: 1; background: #f7fee7; }
 
-        .titulo-principal { text-align: center; font-size: 32px; font-weight: 800; color: #111827; margin-bottom: 20px; letter-spacing: -0.5px; }
         .card { background: #ffffff; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 24px; border: 1px solid #f3f4f6; transition: all 0.3s; }
         .card-azul { background: #f0f9ff; border: 1px solid #bae6fd; }
-        .card-edicion { border: 2px solid #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+        .card-edicion { border: 2px solid #f59e0b; box-shadow: 0 0 15px rgba(245, 158, 11, 0.2); }
         
         .card-header { font-size: 18px; font-weight: 700; color: #1f2937; margin-top: 0; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f3f4f6; padding-bottom: 12px; }
         .form-row { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
@@ -225,10 +240,11 @@ function App() {
         .label { font-size: 13px; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.5px; }
         .input-modern { padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; outline: none; background: #ffffff; color: #111827; width: 120px; }
         
-        .btn-guardar { background: #10b981; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; width: 100%; margin-top: 15px;}
-        .btn-actualizar { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; flex: 2;}
+        /* Botones adaptados a los colores del logo (Verde lima / Naranja) */
+        .btn-guardar { background: linear-gradient(135deg, #a3e635 0%, #84cc16 100%); color: #064e3b; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 8px; cursor: pointer; height: 46px; width: 100%; margin-top: 15px; box-shadow: 0 4px 6px rgba(132, 204, 22, 0.3);}
+        .btn-actualizar { background: linear-gradient(135deg, #fb923c 0%, #f59e0b 100%); color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 8px; cursor: pointer; height: 46px; flex: 2; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);}
         .btn-cancelar { background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; flex: 1;}
-        .btn-perfil { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; }
+        .btn-perfil { background: #0b1328; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; }
         
         .btn-accion-mini { background: #f3f4f6; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 16px; transition: all 0.2s;}
         .btn-accion-mini:hover { background: #e5e7eb; }
@@ -237,10 +253,15 @@ function App() {
         .lista-historial { list-style: none; padding: 0; margin: 0; }
         .item-historial { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid #e5e7eb; }
         .badge { padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
-        .badge-peso { background: #dcfce7; color: #166534; }
-        .badge-cintura { background: #fef3c7; color: #b45309; }
-        .badge-ayuno { background: #ede9fe; color: #6d28d9; }
+        .badge-peso { background: #ecfccb; color: #3f6212; border: 1px solid #d9f99d; } /* Verde lima */
+        .badge-cintura { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; } /* Naranja */
+        .badge-ayuno { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
       `}</style>
+
+      {/* AQUÍ ESTÁ EL NUEVO LOGO */}
+      <div className="top-bar">
+        <img src="/logo-completo.png" alt="Metabolize Logo" className="logo-img" />
+      </div>
 
       {/* SELECTOR DE USUARIOS */}
       <div className="user-switcher">
@@ -251,8 +272,6 @@ function App() {
           👩🏻 Gordito
         </button>
       </div>
-
-      <h1 className="titulo-principal">📊 Seguimiento Metabólico</h1>
       
       {/* PANEL DE CONFIGURACIÓN */}
       <div className="card card-azul">
@@ -326,11 +345,13 @@ function App() {
                 <Legend wrapperStyle={{ paddingTop: '10px' }}/>
 
                 {pesoObjetivoCalculado > 0 && (
-                  <ReferenceLine y={pesoObjetivoCalculado} label={{ position: 'top', value: `Meta: ${pesoObjetivoCalculado.toFixed(1)} kg`, fill: '#3b82f6', fontSize: 12, fontWeight: 'bold' }} stroke="#3b82f6" strokeDasharray="3 3" />
+                  <ReferenceLine y={pesoObjetivoCalculado} label={{ position: 'top', value: `Meta: ${pesoObjetivoCalculado.toFixed(1)} kg`, fill: '#0b1328', fontSize: 12, fontWeight: 'bold' }} stroke="#0b1328" strokeDasharray="3 3" />
                 )}
                 
                 <Line type="monotone" dataKey="peso_ideal" name="Curva Ideal (-0.7%)" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={false} />
-                <Line type="monotone" dataKey="peso" name="Mi Peso Real" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 8 }} connectNulls={true} />
+                
+                {/* La línea de tu peso real ahora es Verde Lima vibrante de tu logo */}
+                <Line type="monotone" dataKey="peso" name="Mi Peso Real" stroke="#84cc16" strokeWidth={4} dot={{ r: 5, fill: '#84cc16' }} activeDot={{ r: 8 }} connectNulls={true} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -351,7 +372,8 @@ function App() {
                 <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12, fill: '#374151'}} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', color: '#1f2937' }} itemStyle={{ fontWeight: 'bold' }} />
                 
-                <Line type="monotone" dataKey="cintura" name="Cintura (cm)" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4, fill: '#f59e0b' }} activeDot={{ r: 8 }} connectNulls={true} />
+                {/* La línea de la cintura ahora es Naranja de tu logo */}
+                <Line type="monotone" dataKey="cintura" name="Cintura (cm)" stroke="#f59e0b" strokeWidth={4} dot={{ r: 5, fill: '#f59e0b' }} activeDot={{ r: 8 }} connectNulls={true} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -360,7 +382,7 @@ function App() {
         </div>
       </div>
 
-      {/* HISTORIAL CON BOTÓN DE EDITAR */}
+      {/* HISTORIAL */}
       <div className="card">
         <h3 className="card-header">📝 Historial de Registros</h3>
         <ul className="lista-historial">
@@ -383,7 +405,6 @@ function App() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                {/* Botón de Editar */}
                 <button onClick={() => cargarParaEditar(reg)} className="btn-accion-mini" title="Editar registro">✏️</button>
                 <button onClick={() => borrarRegistro(reg.id)} className="btn-accion-mini borrar" title="Borrar registro">🗑️</button>
               </div>
