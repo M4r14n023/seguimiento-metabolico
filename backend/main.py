@@ -26,17 +26,15 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # --- TRUCO DE MIGRACIÓN PARA LA CONFIGURACIÓN ---
-    # Revisamos si existe la tabla vieja (la que tenía un 'id' en vez de 'usuario'). 
-    # Si existe, la borramos para crear la nueva estructura multipersonal.
+    # 1. TRUCO DE MIGRACIÓN: Borramos la tabla vieja si existe (solo si tiene 'id')
     try:
         cursor.execute("SELECT id FROM configuracion LIMIT 1")
         cursor.execute("DROP TABLE configuracion")
         conn.commit()
     except Exception:
-        conn.rollback() # Si da error, es porque no existe o ya es la tabla nueva
+        conn.rollback()
 
-    # 1. Crear tablas si no existen
+    # 2. CREAMOS LAS TABLAS NUEVAS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS registros_peso (
             id SERIAL PRIMARY KEY,
@@ -55,8 +53,10 @@ def init_db():
             grasa_objetivo REAL
         )
     ''')
+    # OBLIGAMOS a guardar la creación de las tablas AHORA MISMO
+    conn.commit() 
     
-    # 2. Actualizar tabla registros_peso (Agregamos las columnas si es la primera vez)
+    # 3. ACTUALIZAMOS COLUMNAS DE REGISTRO (Por si la tabla ya existía)
     columnas_peso = [
         ("usuario", "TEXT DEFAULT 'Mariano'"),
         ("gym", "BOOLEAN DEFAULT FALSE"),
@@ -68,9 +68,9 @@ def init_db():
             cursor.execute(f"ALTER TABLE registros_peso ADD COLUMN {col} {tipo}")
             conn.commit()
         except Exception:
-            conn.rollback() # Si falla, es porque la columna ya existe
+            conn.rollback()
 
-    # 3. Insertar perfiles por defecto si están vacíos
+    # 4. INSERTAMOS PERFILES (Ahora estamos seguros de que la tabla 'configuracion' existe)
     cursor.execute("INSERT INTO configuracion (usuario, peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo) VALUES ('Mariano', 80.0, 85.0, 20.0, 12.0) ON CONFLICT DO NOTHING")
     cursor.execute("INSERT INTO configuracion (usuario, peso_inicial, cintura_inicial, grasa_actual, grasa_objetivo) VALUES ('Gordito', 60.0, 70.0, 25.0, 18.0) ON CONFLICT DO NOTHING")
     
