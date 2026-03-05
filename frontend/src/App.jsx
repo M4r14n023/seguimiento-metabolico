@@ -8,6 +8,9 @@ import SelectorGrasaVisual from './components/SelectorGrasaVisual'
 
 function App() {
   const [usuarioActivo, setUsuarioActivo] = useState('Mariano');
+  
+  // --- ESTADO DE CARGA (LOADING) ---
+  const [cargando, setCargando] = useState(true);
 
   // --- ESTADOS DE REGISTRO ---
   const [peso, setPeso] = useState('');
@@ -30,8 +33,14 @@ function App() {
   const API_URL = 'https://seguimiento-metabolico.onrender.com/api';
 
   useEffect(() => {
-    cargarHistorial();
-    cargarConfiguracion();
+    const inicializarDatos = async () => {
+      setCargando(true);
+      // Ejecutamos ambas peticiones al mismo tiempo para que sea más rápido
+      await Promise.all([cargarHistorial(), cargarConfiguracion()]);
+      setCargando(false);
+    };
+    
+    inicializarDatos();
     limpiarFormulario();
   }, [usuarioActivo]);
 
@@ -65,6 +74,7 @@ function App() {
   };
 
   const guardarConfiguracion = async () => {
+    setCargando(true);
     try {
       await axios.post(`${API_URL}/config`, {
         usuario: usuarioActivo,
@@ -74,14 +84,17 @@ function App() {
         grasa_objetivo: parseFloat(grasaObjetivo)
       });
       alert(`¡Perfil de ${usuarioActivo} guardado con éxito!`);
-      cargarHistorial();
+      await cargarHistorial();
     } catch (error) {
       alert("Error al guardar el perfil");
+    } finally {
+      setCargando(false);
     }
   };
 
   const guardarRegistro = async () => {
     if (!peso) return alert("Por favor, ingresa tu peso.");
+    setCargando(true);
     try {
       await axios.post(`${API_URL}/registrar_peso`, {
         usuario: usuarioActivo,
@@ -91,14 +104,17 @@ function App() {
         gym: gym, tenis: tenis, casa: casa
       });
       limpiarFormulario();
-      cargarHistorial();
+      await cargarHistorial();
     } catch (error) {
       alert("Hubo un error al guardar el registro.");
+    } finally {
+      setCargando(false);
     }
   };
 
   const actualizarRegistro = async () => {
     if (!peso) return alert("Por favor, ingresa tu peso.");
+    setCargando(true);
     try {
       await axios.put(`${API_URL}/editar_peso/${editandoId}`, {
         peso: parseFloat(peso),
@@ -107,9 +123,11 @@ function App() {
         gym: gym, tenis: tenis, casa: casa
       });
       limpiarFormulario();
-      cargarHistorial();
+      await cargarHistorial();
     } catch (error) {
       alert("Hubo un error al actualizar el registro.");
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -126,11 +144,14 @@ function App() {
 
   const borrarRegistro = async (id) => {
     if (!window.confirm("¿Seguro que quieres borrar este registro?")) return;
+    setCargando(true);
     try {
       await axios.delete(`${API_URL}/borrar_peso/${id}`);
-      cargarHistorial();
+      await cargarHistorial();
     } catch (error) {
       console.error("Error al borrar:", error);
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -205,9 +226,61 @@ function App() {
         #root { width: 100%; display: flex; justify-content: center; }
         .app-container { max-width: 900px; width: 100%; padding: 20px 20px 40px 20px; box-sizing: border-box; }
         
-        /* NUEVO HEADER CON EL LOGO */
+        /* OVERLAY DE CARGA (LOADING) */
+        .loader-overlay {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(5px);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          z-index: 9999;
+        }
+        
+        /* ANIMACIÓN METABÓLICA */
+        .spinner-metabolico {
+          width: 80px; height: 80px;
+          border-radius: 50%;
+          border: 6px solid #e5e7eb;
+          border-top-color: #f59e0b; /* Naranja */
+          border-bottom-color: #84cc16; /* Verde Lima */
+          animation: spin 1.2s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
+          position: relative;
+        }
+        .spinner-metabolico:before {
+          content: '🔥';
+          position: absolute;
+          top: 50%; left: 50%;
+          transform: translate(-50%, -50%);
+          font-size: 32px;
+          animation: pulse 1.2s ease-in-out infinite;
+        }
+        
+        @keyframes spin { 
+          0% { transform: rotate(0deg); } 
+          100% { transform: rotate(360deg); } 
+        }
+        @keyframes pulse { 
+          0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; } 
+          50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } 
+        }
+
+        .texto-cargando {
+          margin-top: 24px;
+          font-weight: 800;
+          font-size: 18px;
+          color: #0b1328;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          animation: parpadeo 1.5s linear infinite;
+        }
+        @keyframes parpadeo { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* HEADER Y RESTO DEL CSS */
         .top-bar {
-          background-color: #0b1328; /* Azul oscuro que funde con tu logo */
+          background-color: #0b1328;
           border-radius: 16px;
           padding: 15px;
           margin-bottom: 24px;
@@ -216,11 +289,7 @@ function App() {
           align-items: center;
           box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);
         }
-        .logo-img {
-          max-width: 100%;
-          max-height: 90px;
-          object-fit: contain;
-        }
+        .logo-img { max-width: 100%; max-height: 90px; object-fit: contain; }
 
         .user-switcher { display: flex; background: #e5e7eb; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
         .user-btn { flex: 1; padding: 12px; border: none; background: transparent; font-size: 16px; font-weight: 700; color: #6b7280; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
@@ -240,7 +309,6 @@ function App() {
         .label { font-size: 13px; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.5px; }
         .input-modern { padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; outline: none; background: #ffffff; color: #111827; width: 120px; }
         
-        /* Botones adaptados a los colores del logo (Verde lima / Naranja) */
         .btn-guardar { background: linear-gradient(135deg, #a3e635 0%, #84cc16 100%); color: #064e3b; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 8px; cursor: pointer; height: 46px; width: 100%; margin-top: 15px; box-shadow: 0 4px 6px rgba(132, 204, 22, 0.3);}
         .btn-actualizar { background: linear-gradient(135deg, #fb923c 0%, #f59e0b 100%); color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 8px; cursor: pointer; height: 46px; flex: 2; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);}
         .btn-cancelar { background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; height: 46px; flex: 1;}
@@ -253,14 +321,22 @@ function App() {
         .lista-historial { list-style: none; padding: 0; margin: 0; }
         .item-historial { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid #e5e7eb; }
         .badge { padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
-        .badge-peso { background: #ecfccb; color: #3f6212; border: 1px solid #d9f99d; } /* Verde lima */
-        .badge-cintura { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; } /* Naranja */
+        .badge-peso { background: #ecfccb; color: #3f6212; border: 1px solid #d9f99d; }
+        .badge-cintura { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
         .badge-ayuno { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
       `}</style>
 
-      {/* AQUÍ ESTÁ EL NUEVO LOGO */}
+      {/* COMPONENTE DE CARGA - Solo se muestra si cargando === true */}
+      {cargando && (
+        <div className="loader-overlay">
+          <div className="spinner-metabolico"></div>
+          <div className="texto-cargando">Metabolizando Datos...</div>
+        </div>
+      )}
+
+      {/* HEADER LOGO */}
       <div className="top-bar">
-      <img src="/img/logo-completo.png" alt="Metabolize Logo" className="logo-img" />
+        <img src="/img/logo-completo.png" alt="Metabolize Logo" className="logo-img" />
       </div>
 
       {/* SELECTOR DE USUARIOS */}
@@ -349,8 +425,6 @@ function App() {
                 )}
                 
                 <Line type="monotone" dataKey="peso_ideal" name="Curva Ideal (-0.7%)" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={false} />
-                
-                {/* La línea de tu peso real ahora es Verde Lima vibrante de tu logo */}
                 <Line type="monotone" dataKey="peso" name="Mi Peso Real" stroke="#84cc16" strokeWidth={4} dot={{ r: 5, fill: '#84cc16' }} activeDot={{ r: 8 }} connectNulls={true} />
               </LineChart>
             </ResponsiveContainer>
@@ -372,7 +446,6 @@ function App() {
                 <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 12, fill: '#374151'}} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', color: '#1f2937' }} itemStyle={{ fontWeight: 'bold' }} />
                 
-                {/* La línea de la cintura ahora es Naranja de tu logo */}
                 <Line type="monotone" dataKey="cintura" name="Cintura (cm)" stroke="#f59e0b" strokeWidth={4} dot={{ r: 5, fill: '#f59e0b' }} activeDot={{ r: 8 }} connectNulls={true} />
               </LineChart>
             </ResponsiveContainer>
