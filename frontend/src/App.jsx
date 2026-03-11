@@ -21,8 +21,9 @@ function App() {
   const [casa, setCasa] = useState(false);
   const [historial, setHistorial] = useState([]);
   
-  // --- MODO EDICIÓN ---
+  // --- MODO EDICIÓN Y VISTA ---
   const [editandoId, setEditandoId] = useState(null);
+  const [mostrarHistorialCompleto, setMostrarHistorialCompleto] = useState(false); // <-- NUEVO ESTADO
 
   // --- ESTADOS DE CONFIGURACIÓN ---
   const [pesoInicial, setPesoInicial] = useState(80);
@@ -35,13 +36,13 @@ function App() {
   useEffect(() => {
     const inicializarDatos = async () => {
       setCargando(true);
-      // Ejecutamos ambas peticiones al mismo tiempo para que sea más rápido
       await Promise.all([cargarHistorial(), cargarConfiguracion()]);
       setCargando(false);
     };
     
     inicializarDatos();
     limpiarFormulario();
+    setMostrarHistorialCompleto(false); // Plegar el historial al cambiar de usuario
   }, [usuarioActivo]);
 
   const limpiarFormulario = () => {
@@ -219,6 +220,12 @@ function App() {
     }
   }
 
+  // --- LÓGICA DEL HISTORIAL PLEGABLE ---
+  // Clonamos el historial y lo invertimos para ver el más reciente primero
+  const historialInvertido = [...historial].reverse();
+  // Si mostrarHistorialCompleto es true, mostramos todos, sino solo el primero (1)
+  const historialVisible = mostrarHistorialCompleto ? historialInvertido : historialInvertido.slice(0, 1);
+
   return (
     <div className="app-container">
       <style>{`
@@ -226,69 +233,29 @@ function App() {
         #root { width: 100%; display: flex; justify-content: center; }
         .app-container { max-width: 900px; width: 100%; padding: 20px 20px 40px 20px; box-sizing: border-box; }
         
-        /* OVERLAY DE CARGA (LOADING) */
         .loader-overlay {
-          position: fixed;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(255, 255, 255, 0.85);
-          backdrop-filter: blur(5px);
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          z-index: 9999;
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(5px);
+          display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999;
         }
         
-        /* ANIMACIÓN METABÓLICA */
         .spinner-metabolico {
-          width: 80px; height: 80px;
-          border-radius: 50%;
-          border: 6px solid #e5e7eb;
-          border-top-color: #f59e0b; /* Naranja */
-          border-bottom-color: #84cc16; /* Verde Lima */
-          animation: spin 1.2s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
-          position: relative;
+          width: 80px; height: 80px; border-radius: 50%; border: 6px solid #e5e7eb;
+          border-top-color: #f59e0b; border-bottom-color: #84cc16;
+          animation: spin 1.2s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite; position: relative;
         }
         .spinner-metabolico:before {
-          content: '🔥';
-          position: absolute;
-          top: 50%; left: 50%;
-          transform: translate(-50%, -50%);
-          font-size: 32px;
-          animation: pulse 1.2s ease-in-out infinite;
+          content: '🔥'; position: absolute; top: 50%; left: 50%;
+          transform: translate(-50%, -50%); font-size: 32px; animation: pulse 1.2s ease-in-out infinite;
         }
         
-        @keyframes spin { 
-          0% { transform: rotate(0deg); } 
-          100% { transform: rotate(360deg); } 
-        }
-        @keyframes pulse { 
-          0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; } 
-          50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } 
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; } 50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } }
 
-        .texto-cargando {
-          margin-top: 24px;
-          font-weight: 800;
-          font-size: 18px;
-          color: #0b1328;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          animation: parpadeo 1.5s linear infinite;
-        }
+        .texto-cargando { margin-top: 24px; font-weight: 800; font-size: 18px; color: #0b1328; letter-spacing: 1px; text-transform: uppercase; animation: parpadeo 1.5s linear infinite; }
         @keyframes parpadeo { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
-        /* HEADER Y RESTO DEL CSS */
-        .top-bar {
-          background-color: #0b1328;
-          border-radius: 16px;
-          padding: 15px;
-          margin-bottom: 24px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);
-        }
+        .top-bar { background-color: #0b1328; border-radius: 16px; padding: 15px; margin-bottom: 24px; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); }
         .logo-img { max-width: 100%; max-height: 90px; object-fit: contain; }
 
         .user-switcher { display: flex; background: #e5e7eb; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
@@ -321,12 +288,27 @@ function App() {
         .lista-historial { list-style: none; padding: 0; margin: 0; }
         .item-historial { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid #e5e7eb; }
         .badge { padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
-        .badge-peso { background: #ecfccb; color: #3f6212; border: 1px solid #d9f99d; }
-        .badge-cintura { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
+        .badge-peso { background: #ecfccb; color: #3f6212; border: 1px solid #d9f99d; } 
+        .badge-cintura { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; } 
         .badge-ayuno { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+
+        /* Botón de acordeón */
+        .btn-toggle-historial {
+          width: 100%;
+          margin-top: 15px;
+          padding: 12px;
+          background-color: #f9fafb;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          color: #374151;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease-in-out;
+        }
+        .btn-toggle-historial:hover { background-color: #f3f4f6; }
       `}</style>
 
-      {/* COMPONENTE DE CARGA - Solo se muestra si cargando === true */}
+      {/* COMPONENTE DE CARGA */}
       {cargando && (
         <div className="loader-overlay">
           <div className="spinner-metabolico"></div>
@@ -459,7 +441,7 @@ function App() {
       <div className="card">
         <h3 className="card-header">📝 Historial de Registros</h3>
         <ul className="lista-historial">
-          {historial.map((reg) => (
+          {historialVisible.map((reg) => (
             <li key={reg.id} className="item-historial">
               <div>
                 <span className="fecha-texto">📅 {renderFecha(reg.fecha)}</span>
@@ -485,6 +467,16 @@ function App() {
           ))}
           {historial.length === 0 && <p style={{ color: '#6b7280', textAlign: 'center', paddingTop: '10px' }}>No hay registros para mostrar.</p>}
         </ul>
+        
+        {/* Botón Acordeón - Se muestra solo si hay más de 1 registro */}
+        {historial.length > 1 && (
+          <button 
+            onClick={() => setMostrarHistorialCompleto(!mostrarHistorialCompleto)}
+            className="btn-toggle-historial"
+          >
+            {mostrarHistorialCompleto ? '🔼 Plegar Historial' : `🔽 Ver Historial Completo (${historial.length} registros)`}
+          </button>
+        )}
       </div>
     </div>
   );
